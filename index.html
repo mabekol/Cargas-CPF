@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimizador de Carga - Generador 50kVA</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --danger: #ef4444;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            background: var(--card);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .summary-card {
+            position: sticky;
+            top: 10px;
+            z-index: 100;
+            background: var(--card);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            border: 2px solid transparent;
+        }
+
+        .summary-card.overload {
+            border-color: var(--danger);
+            background-color: #fef2f2;
+        }
+
+        .progress-container {
+            height: 24px;
+            background: #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-bar {
+            height: 100%;
+            transition: width 0.3s ease, background-color 0.3s ease;
+            width: 0%;
+        }
+
+        .table-section {
+            background: var(--card);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section-title {
+            background: #f1f5f9;
+            padding: 12px 15px;
+            font-weight: bold;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .load-row {
+            padding: 15px;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .load-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .area-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .tech-specs {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-top: 4px;
+        }
+
+        .kva-vals {
+            font-size: 0.85rem;
+            color: #64748b;
+            text-align: right;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        input[type="range"] {
+            flex-grow: 1;
+            accent-color: var(--primary);
+        }
+
+        .percentage-input {
+            width: 60px;
+            padding: 5px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .restricted-val {
+            min-width: 80px;
+            text-align: right;
+            font-family: monospace;
+            font-weight: bold;
+        }
+
+        footer {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-top: 20px;
+            padding-bottom: 40px;
+        }
+
+        @media (max-width: 480px) {
+            .load-info {
+                flex-direction: column;
+                gap: 8px;
+            }
+            .kva-vals {
+                text-align: left;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1 style="margin:0; font-size: 1.5rem;">Diagnóstico de Carga</h1>
+        <p style="color: #64748b; margin: 5px 0 0 0;">Capacidad Generador: 50 kVA</p>
+    </header>
+
+    <div id="summary" class="summary-card">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+            <span style="font-weight: bold;">Uso Total: <span id="total-kva">0.00</span> kVA</span>
+            <span id="usage-percent" style="font-size: 1.2rem; font-weight: 800;">0%</span>
+        </div>
+        <div class="progress-container">
+            <div id="main-progress" class="progress-bar"></div>
+        </div>
+        <div id="status-msg" style="font-size: 0.85rem; text-align: center; font-weight: 500;">Carga dentro de límites</div>
+    </div>
+
+    <div id="tables-container">
+        <!-- Las tablas se generarán aquí con JS -->
+    </div>
+
+    <footer>
+        Sistema de Simulación Eléctrica &bull; Basado en Formulario de Facilidad
+    </footer>
+</div>
+
+<script>
+    const GENERATOR_CAPACITY = 50;
+
+    const data = [
+        {
+            title: "Cargas 480V",
+            items: [
+                { id: 1, area: "PTARI", v: 480, i: 8, fp: 0.8, r3: 1.732, initial: 50 },
+                { id: 2, area: "Planta PTAP", v: 480, i: 4, fp: 0.8, r3: 1.732, initial: 100 },
+                { id: 3, area: "Planta PTARD", v: 480, i: 6, fp: 0.8, r3: 1.732, initial: 100 },
+                { id: 4, area: "Alumbrado perimetral", v: 480, i: 5, fp: 0.8, r3: 1.732, initial: 50 },
+                { id: 5, area: "Bomba cargadero", v: 480, i: 18, fp: 0.8, r3: 1.732, initial: 0 },
+                { id: 6, area: "Compresor Facilidades", v: 480, i: 17, fp: 0.8, r3: 1.732, initial: 0 }
+            ]
+        },
+        {
+            title: "Cargas 220V",
+            items: [
+                { id: 7, area: "Casino", v: 220, i: 52, fp: 0.8, r3: 1.732, initial: 25 },
+                { id: 8, area: "TDL 1. (Habitaciones 1-3-5-7)", v: 220, i: 3.6, fp: 0.8, r3: 1.732, initial: 100 },
+                { id: 9, area: "TDL 2. (Habitaciones 2-4-6-8)", v: 220, i: 4.33, fp: 0.8, r3: 1.732, initial: 0 },
+                { id: 10, area: "TDL 3. (Habitaciones 9-10-11-12)", v: 220, i: 5.33, fp: 0.8, r3: 1.732, initial: 0 },
+                { id: 11, area: "Reserva Equipada (Rol, Taller, etc.)", v: 220, i: 7.16, fp: 0.8, r3: 1.732, initial: 30 },
+                { id: 12, area: "Reserva Equipada (Gimnasio)", v: 220, i: 6.6, fp: 0.8, r3: 1.732, initial: 0 },
+                { id: 13, area: "Bodega", v: 220, i: 24, fp: 0.8, r3: 1.732, initial: 60 },
+                { id: 14, area: "EB100", v: 220, i: 7.16, fp: 0.8, r3: 1.732, initial: 100 },
+                { id: 15, area: "Escuela Facilidades", v: 220, i: 7, fp: 0.8, r3: 1, initial: 100 },
+                { id: 16, area: "Bomba captación agua", v: 220, i: 4, fp: 0.8, r3: 1.732, initial: 0 }
+            ]
+        }
+    ];
+
+    function calculateKva(item) {
+        return (item.v * item.i * item.r3) / 1000;
+    }
+
+    function getColorForPercentage(pct) {
+        const hue = 120 - (pct * 1.2); 
+        return `hsl(${hue}, 70%, 45%)`;
+    }
+
+    function render() {
+        const container = document.getElementById('tables-container');
+        container.innerHTML = '';
+
+        data.forEach(section => {
+            const sectionEl = document.createElement('div');
+            sectionEl.className = 'table-section';
+            
+            let html = `
+                <div class="section-title">
+                    <span>${section.title}</span>
+                    <span id="subtotal-${section.title.replace(/\s/g, '')}">0.00 kVA</span>
+                </div>
+            `;
+
+            section.items.forEach(item => {
+                const kvaTotal = calculateKva(item);
+                const currentActual = (item.i * item.initial / 100);
+
+                html += `
+                    <div class="load-row">
+                        <div class="load-info">
+                            <div>
+                                <span class="area-name">${item.area}</span>
+                                <div class="tech-specs">
+                                    <span>Tensión: <b>${item.v}V</b></span> | 
+                                    <span>Corriente Máx: <b>${item.i}A</b></span>
+                                </div>
+                            </div>
+                            <div class="kva-vals">
+                                <div style="color: var(--primary); font-weight: bold; font-size: 0.9rem;">
+                                    I actual: <span id="curr-${item.id}">${currentActual.toFixed(2)}</span> A
+                                </div>
+                                <div style="font-size: 0.75rem;">Cap. Máx: ${kvaTotal.toFixed(2)} kVA</div>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <input type="range" min="0" max="100" step="1" 
+                                value="${item.initial}" 
+                                data-id="${item.id}"
+                                oninput="updateItem(${item.id}, this.value)">
+                            <input type="number" class="percentage-input" 
+                                id="num-${item.id}"
+                                value="${item.initial}" 
+                                oninput="updateItem(${item.id}, this.value)"
+                                style="color: ${getColorForPercentage(item.initial)}">
+                            <div class="restricted-val" id="res-${item.id}">
+                                ${(kvaTotal * item.initial / 100).toFixed(2)} kVA
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            sectionEl.innerHTML = html;
+            container.appendChild(sectionEl);
+        });
+        updateTotals();
+    }
+
+    function updateItem(id, value) {
+        let val = parseInt(value);
+        if (isNaN(val)) val = 0;
+        if (val > 100) val = 100;
+        if (val < 0) val = 0;
+
+        data.forEach(section => {
+            section.items.forEach(item => {
+                if (item.id === id) {
+                    item.initial = val;
+                    const kvaTotal = calculateKva(item);
+                    const res = kvaTotal * (val / 100);
+                    const currentActual = (item.i * val / 100);
+                    
+                    const range = document.querySelector(`input[type="range"][data-id="${id}"]`);
+                    const num = document.getElementById(`num-${id}`);
+                    const resDisplay = document.getElementById(`res-${id}`);
+                    const currDisplay = document.getElementById(`curr-${id}`);
+                    
+                    if(range.value != val) range.value = val;
+                    if(num.value != val) num.value = val;
+                    
+                    num.style.color = getColorForPercentage(val);
+                    resDisplay.innerText = res.toFixed(2) + " kVA";
+                    currDisplay.innerText = currentActual.toFixed(2);
+                }
+            });
+        });
+
+        updateTotals();
+    }
+
+    function updateTotals() {
+        let globalTotal = 0;
+
+        data.forEach(section => {
+            let sectionTotal = 0;
+            section.items.forEach(item => {
+                sectionTotal += calculateKva(item) * (item.initial / 100);
+            });
+            globalTotal += sectionTotal;
+            
+            const subDisplay = document.getElementById(`subtotal-${section.title.replace(/\s/g, '')}`);
+            if(subDisplay) subDisplay.innerText = sectionTotal.toFixed(2) + " kVA";
+        });
+
+        const totalKvaEl = document.getElementById('total-kva');
+        const usagePctEl = document.getElementById('usage-percent');
+        const progressEl = document.getElementById('main-progress');
+        const summaryCard = document.getElementById('summary');
+        const statusMsg = document.getElementById('status-msg');
+
+        const usagePercentage = (globalTotal / GENERATOR_CAPACITY) * 100;
+
+        totalKvaEl.innerText = globalTotal.toFixed(2);
+        usagePctEl.innerText = usagePercentage.toFixed(1) + "%";
+        progressEl.style.width = Math.min(usagePercentage, 100) + "%";
+
+        if (usagePercentage > 100) {
+            progressEl.style.backgroundColor = 'var(--danger)';
+            summaryCard.classList.add('overload');
+            statusMsg.innerText = "¡SOBRECARGA DETECTADA!";
+            statusMsg.style.color = 'var(--danger)';
+        } else if (usagePercentage > 85) {
+            progressEl.style.backgroundColor = 'var(--warning)';
+            summaryCard.classList.remove('overload');
+            statusMsg.innerText = "Precaución: Carga alta";
+            statusMsg.style.color = 'var(--warning)';
+        } else {
+            progressEl.style.backgroundColor = 'var(--success)';
+            summaryCard.classList.remove('overload');
+            statusMsg.innerText = "Generador operando estable";
+            statusMsg.style.color = 'var(--success)';
+        }
+    }
+
+    window.onload = render;
+</script>
+
+</body>
+</html>
